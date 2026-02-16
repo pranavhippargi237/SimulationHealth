@@ -3317,7 +3317,7 @@ def main():
                     progress_bar.empty()
 
         if num_replications == 1:
-        st.success(f"Simulation complete! {metrics.total_patients} patients processed.")
+            st.success(f"Simulation complete! {metrics.total_patients} patients processed.")
         else:
             st.success(f"Completed {num_replications} replications! Average: {aggregated_metrics.total_patients_mean:.1f} patients per run.")
 
