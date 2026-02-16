@@ -5,8 +5,17 @@ ED Digital Twin MVP - Streamlit Application
 A configurable ED throughput simulation tool with scenario support.
 
 Usage:
-    streamlit run ed_simulation/app.py
+    streamlit run app.py
 """
+
+import sys
+import os
+
+# Add the repository root to Python path for imports
+# This ensures ed_simulation package can be found
+repo_root = os.path.dirname(os.path.abspath(__file__))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
 
 import random
 from typing import Dict, Generator, List, Optional, Tuple
