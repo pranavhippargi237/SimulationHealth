@@ -2772,7 +2772,7 @@ def main():
         "Number of Runs",
         min_value=1,
         max_value=20,
-        value=1,
+        value=10,
         step=1,
         help="Run multiple simulations with different random seeds for statistical confidence. 3+ runs enable confidence intervals.",
     )
