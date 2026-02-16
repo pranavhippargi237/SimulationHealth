@@ -287,9 +287,13 @@ class MetricsCollector:
         """Clear all collected patients."""
         self._patients.clear()
 
-    def calculate(self) -> EDMetrics:
+    def calculate(self, warmup_minutes: float = 0.0) -> EDMetrics:
         """
         Calculate all ED metrics from collected patients.
+
+        Args:
+            warmup_minutes: Warmup period in minutes. Patients arriving before
+                          this time are excluded from metrics.
 
         Returns:
             EDMetrics dataclass with all calculated values
@@ -299,13 +303,22 @@ class MetricsCollector:
         if not self._patients:
             return metrics
 
+        # Filter out patients that arrived during warmup period
+        filtered_patients = [
+            p for p in self._patients
+            if p.arrival_time >= warmup_minutes
+        ]
+
+        if not filtered_patients:
+            return metrics
+
         # Categorize patients
         completed = []
         lwbs = []
         lbtc = []
         still_in_ed = []
 
-        for p in self._patients:
+        for p in filtered_patients:
             if p.disposition == DispositionType.DISCHARGE_HOME:
                 completed.append(p)
             elif p.is_lwbs and not p.seen_by_provider:
@@ -318,8 +331,8 @@ class MetricsCollector:
                 # Other dispositions (AMA, Transfer, etc.) - count as completed
                 completed.append(p)
 
-        # Volume metrics
-        metrics.total_patients = len(self._patients)
+        # Volume metrics (using filtered patients)
+        metrics.total_patients = len(filtered_patients)
         metrics.completed_patients = len(completed)
         metrics.lwbs_count = len(lwbs)
         metrics.lbtc_count = len(lbtc)

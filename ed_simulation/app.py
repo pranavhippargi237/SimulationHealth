@@ -337,12 +337,13 @@ class EDSimulationWithScenarios:
 
         return self._nodes[node_type]
 
-    def run(self, duration_minutes: float) -> None:
+    def run(self, duration_minutes: float, warmup_minutes: float = 0.0) -> None:
         """
         Run the simulation.
 
         Args:
             duration_minutes: How long to simulate (in minutes)
+            warmup_minutes: Warmup period in minutes. Statistics are reset after this.
         """
         # Start arrival process
         self._env.process(
@@ -358,9 +359,25 @@ class EDSimulationWithScenarios:
         
         # Start periodic snapshot collection (every 15 minutes)
         self._env.process(self._periodic_snapshots(interval=15.0, duration=duration_minutes))
+        
+        # Start warmup reset process if warmup period is specified
+        if warmup_minutes > 0:
+            self._env.process(self._reset_after_warmup(warmup_minutes))
 
         # Run simulation
         self._env.run(until=duration_minutes + 180)
+    
+    def _reset_after_warmup(self, warmup_minutes: float) -> Generator:
+        """
+        Reset node statistics after warmup period.
+        
+        Args:
+            warmup_minutes: When to reset statistics
+        """
+        yield self._env.timeout(warmup_minutes)
+        # Reset statistics for all nodes
+        for node in self._nodes.values():
+            node.statistics.reset()
     
     def _monitor_staffing_updates(self, duration_minutes: float) -> Generator:
         """Monitor simulation time and update staffing capacities."""
@@ -439,7 +456,8 @@ def run_simulation(
     scenario_params: Optional[Dict] = None,
     duration_hours: int = 24,
     seed: int = 42,
-    ed_config: Optional[EDConfig] = None
+    ed_config: Optional[EDConfig] = None,
+    warmup_minutes: float = 120.0
 ) -> Tuple:
     """
     Run ED simulation with given parameters.
@@ -451,6 +469,7 @@ def run_simulation(
         duration_hours: Simulation duration in hours
         seed: Random seed for reproducibility
         ed_config: Optional ED configuration (uses defaults if None)
+        warmup_minutes: Warmup period in minutes (default: 120 = 2 hours)
 
     Returns:
         Tuple of (EDSimulation, EDMetrics, scenario_description)
@@ -465,11 +484,11 @@ def run_simulation(
         scenario_params=scenario_params,
         ed_config=ed_config,
     )
-    sim.run(duration_minutes=duration_hours * 60)
+    sim.run(duration_minutes=duration_hours * 60, warmup_minutes=warmup_minutes)
 
     collector = MetricsCollector()
     collector.add_patients(sim.patients)
-    metrics = collector.calculate()
+    metrics = collector.calculate(warmup_minutes=warmup_minutes)
 
     return sim, metrics, sim.scenario_description
 
@@ -478,7 +497,8 @@ def run_simulation_with_custom_capacities(
     arrival_rate: float,
     custom_capacities: Dict[NodeType, int],
     duration_hours: int = 24,
-    seed: int = 42
+    seed: int = 42,
+    warmup_minutes: float = 120.0
 ) -> Tuple:
     """
     Run ED simulation with custom node capacities.
@@ -488,6 +508,7 @@ def run_simulation_with_custom_capacities(
         custom_capacities: Dictionary mapping NodeType to capacity
         duration_hours: Simulation duration in hours
         seed: Random seed for reproducibility
+        warmup_minutes: Warmup period in minutes (default: 120 = 2 hours)
         
     Returns:
         Tuple of (EDSimulation, EDMetrics, description)
@@ -502,11 +523,11 @@ def run_simulation_with_custom_capacities(
         scenario_params=None,
         custom_capacities=custom_capacities,
     )
-    sim.run(duration_minutes=duration_hours * 60)
+    sim.run(duration_minutes=duration_hours * 60, warmup_minutes=warmup_minutes)
     
     collector = MetricsCollector()
     collector.add_patients(sim.patients)
-    metrics = collector.calculate()
+    metrics = collector.calculate(warmup_minutes=warmup_minutes)
     
     return sim, metrics, "Custom Staffing Configuration"
 
@@ -515,7 +536,8 @@ def evaluate_staffing_suggestion(
     suggestion: StaffingSuggestion,
     arrival_rate: float,
     duration_hours: int = 24,
-    seed: int = 42
+    seed: int = 42,
+    warmup_minutes: float = 120.0
 ) -> StaffingSuggestion:
     """
     Evaluate a staffing suggestion by running simulation.
@@ -525,6 +547,7 @@ def evaluate_staffing_suggestion(
         arrival_rate: Patients per hour
         duration_hours: Simulation duration
         seed: Random seed
+        warmup_minutes: Warmup period in minutes
         
     Returns:
         Updated suggestion with expected metrics
@@ -534,6 +557,7 @@ def evaluate_staffing_suggestion(
         custom_capacities=suggestion.node_capacities,
         duration_hours=duration_hours,
         seed=seed,
+        warmup_minutes=warmup_minutes,
     )
     
     # Calculate utilization (average across key nodes)
@@ -564,7 +588,8 @@ def run_simulation_with_historical_arrivals(
     historical_arrivals: List,
     scenario_key: Optional[str] = None,
     scenario_params: Optional[Dict] = None,
-    seed: int = 42
+    seed: int = 42,
+    warmup_minutes: float = 120.0
 ) -> Tuple:
     """
     Run ED simulation with historical arrival data.
@@ -574,6 +599,7 @@ def run_simulation_with_historical_arrivals(
         scenario_key: Scenario to apply
         scenario_params: Parameters for the scenario
         seed: Random seed for reproducibility
+        warmup_minutes: Warmup period in minutes
 
     Returns:
         Tuple of (EDSimulation, EDMetrics, scenario_description)
@@ -609,12 +635,16 @@ def run_simulation_with_historical_arrivals(
     else:
         max_time = 1440  # 24 hours default
     
+    # Start warmup reset process if warmup period is specified
+    if warmup_minutes > 0:
+        env.process(sim._reset_after_warmup(warmup_minutes))
+    
     # Run simulation
     env.run(until=max_time)
 
     collector = MetricsCollector()
     collector.add_patients(sim.patients)
-    metrics = collector.calculate()
+    metrics = collector.calculate(warmup_minutes=warmup_minutes)
 
     return sim, metrics, sim.scenario_description
 
@@ -2713,17 +2743,27 @@ def main():
         arrival_rate = custom_config.arrival_rate or ARRIVAL_DEFAULTS["mean_arrival_rate"]
     else:
         # Use defaults
-        arrival_rate = st.sidebar.slider(
-            "Arrival Rate (patients/hour)",
-            min_value=1.0,
-            max_value=10.0,
-            value=3.0,
-            step=0.5,
-            help="Average number of patients arriving per hour (Poisson process)",
-        )
+    arrival_rate = st.sidebar.slider(
+        "Arrival Rate (patients/hour)",
+        min_value=1.0,
+        max_value=10.0,
+        value=3.0,
+        step=0.5,
+        help="Average number of patients arriving per hour (Poisson process)",
+    )
+
+    # Warmup period input
+    warmup_minutes = st.sidebar.slider(
+        "Warmup Period (minutes)",
+        min_value=0,
+        max_value=480,
+        value=120,
+        step=15,
+        help="Initial period excluded from statistics. Patients arriving during warmup are discarded. Default: 120 minutes (2 hours).",
+    )
 
         # Show diagram button for default mode too
-        st.sidebar.markdown("---")
+    st.sidebar.markdown("---")
         st.sidebar.markdown("### 📊 Visual Diagram")
         if st.sidebar.button("🖼️ Show ED Layout Diagram", use_container_width=True, type="primary"):
             st.session_state['show_ed_diagram'] = True
@@ -2955,6 +2995,7 @@ def main():
                         arrival_rate=opt_arrival_rate,
                         duration_hours=24,
                         seed=42 + i,  # Different seed for each suggestion
+                        warmup_minutes=warmup_minutes,
                     )
                     
                     # Recalculate score based on goal and actual metrics
@@ -3074,6 +3115,7 @@ def main():
                         historical_arrivals=historical_arrivals,
                         scenario_key=scenario_key,
                         scenario_params=scenario_params,
+                        warmup_minutes=warmup_minutes,
                     )
                 
                 st.success(f"Simulation complete! {metrics.total_patients} patients processed.")
@@ -3170,6 +3212,7 @@ def main():
                 scenario_params=scenario_params,
                 seed=42,  # Same seed for fair comparison with baseline
                 ed_config=ed_config,
+                warmup_minutes=warmup_minutes,
             )
         
         # Run baseline for comparison if scenario is selected
@@ -3184,6 +3227,7 @@ def main():
                     scenario_params=None,
                     seed=42,  # Same seed as scenario for fair comparison
                     ed_config=ed_config,
+                    warmup_minutes=warmup_minutes,
             )
 
         st.success(f"Simulation complete! {metrics.total_patients} patients processed.")
@@ -3245,9 +3289,9 @@ def main():
             
             st.markdown("---")
 
-            # Display metrics report
-            st.subheader("National ED Metrics Report")
-            st.markdown(f"```\n{metrics.print_report()}\n```")
+        # Display metrics report
+        st.subheader("National ED Metrics Report")
+        st.markdown(f"```\n{metrics.print_report()}\n```")
 
             # Charts
             st.subheader("📊 Visualizations")
@@ -3282,13 +3326,13 @@ def main():
             if scenario_key == "staffing_adjustment" and sim._scenario:
                 _display_hourly_metrics(sim, scenario_params)
 
-            # Patient journeys table
-            st.subheader("Sample Patient Journeys (Top 3 Completed)")
-            journeys_df = get_patient_journeys_df(sim.patients, limit=3)
-            if not journeys_df.empty:
-                st.dataframe(journeys_df, use_container_width=True, hide_index=True)
-            else:
-                st.info("No completed patients to display.")
+        # Patient journeys table
+        st.subheader("Sample Patient Journeys (Top 3 Completed)")
+        journeys_df = get_patient_journeys_df(sim.patients, limit=3)
+        if not journeys_df.empty:
+            st.dataframe(journeys_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No completed patients to display.")
         
         with tab2:
             # Patient Journey Trace tab
