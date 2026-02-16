@@ -2748,13 +2748,13 @@ def main():
         arrival_rate = custom_config.arrival_rate or ARRIVAL_DEFAULTS["mean_arrival_rate"]
     else:
         # Use defaults
-        arrival_rate = st.sidebar.slider(
-            "Arrival Rate (patients/hour)",
-            min_value=1.0,
-            max_value=10.0,
-            value=3.0,
-            step=0.5,
-            help="Average number of patients arriving per hour (Poisson process)",
+    arrival_rate = st.sidebar.slider(
+        "Arrival Rate (patients/hour)",
+        min_value=1.0,
+        max_value=10.0,
+        value=3.0,
+        step=0.5,
+        help="Average number of patients arriving per hour (Poisson process)",
     )
 
     # Warmup period input
@@ -2777,12 +2777,12 @@ def main():
         help="Run multiple simulations with different random seeds for statistical confidence. 3+ runs enable confidence intervals.",
     )
 
-        # Show diagram button for default mode too
+    # Show diagram button for default mode too
     st.sidebar.markdown("---")
-        st.sidebar.markdown("### 📊 Visual Diagram")
-        if st.sidebar.button("🖼️ Show ED Layout Diagram", use_container_width=True, type="primary"):
-            st.session_state['show_ed_diagram'] = True
-            st.rerun()
+    st.sidebar.markdown("### 📊 Visual Diagram")
+    if st.sidebar.button("🖼️ Show ED Layout Diagram", use_container_width=True, type="primary"):
+        st.session_state['show_ed_diagram'] = True
+        st.rerun()
 
     st.sidebar.markdown("---")
     
