@@ -3230,16 +3230,16 @@ def main():
         # Run simulation(s) - single or multiple replications
         if num_replications == 1:
             # Single run (original behavior)
-        with st.spinner("Running simulation..."):
-            sim, metrics, scenario_desc = run_simulation(
-                arrival_rate=arrival_rate,
-                scenario_key=scenario_key,
-                scenario_params=scenario_params,
-                    seed=42,  # Same seed for fair comparison with baseline
-                    ed_config=ed_config,
-                    warmup_minutes=warmup_minutes,
-                )
-            
+            with st.spinner("Running simulation..."):
+                sim, metrics, scenario_desc = run_simulation(
+                    arrival_rate=arrival_rate,
+                    scenario_key=scenario_key,
+                    scenario_params=scenario_params,
+                        seed=42,  # Same seed for fair comparison with baseline
+                        ed_config=ed_config,
+                        warmup_minutes=warmup_minutes,
+                    )
+                
             aggregated_metrics = None
             replication_results = None
             
