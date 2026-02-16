@@ -13,20 +13,31 @@ import os
 
 # Add the repository root to Python path for imports
 # This ensures ed_simulation package can be found
-# Handle both cases: app.py at repo root or in ed_simulation subdirectory
+# Handle multiple deployment scenarios:
+# 1. app.py at repo root (local development)
+# 2. app.py in ed_simulation subdirectory (Streamlit Cloud)
+# 3. Repository cloned to different paths
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 
-# If we're in an ed_simulation subdirectory, add parent to path
-# Otherwise, add current directory to path
-if os.path.basename(current_dir) == 'ed_simulation':
-    # We're in ed_simulation subdirectory, add parent to path
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
-else:
-    # We're at repo root, add current directory to path
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
+# Strategy: Add both current and parent directories to path
+# This covers both local and cloud deployment scenarios
+paths_to_add = []
+if current_dir not in sys.path:
+    paths_to_add.append(current_dir)
+if parent_dir not in sys.path and parent_dir != current_dir:
+    paths_to_add.append(parent_dir)
+
+# Also check if we're in a mount/src structure (Streamlit Cloud)
+# and add the mount/src directory if it exists
+if '/mount/src/' in current_dir:
+    mount_src = current_dir.split('/mount/src/')[0] + '/mount/src'
+    if mount_src not in sys.path and os.path.exists(mount_src):
+        paths_to_add.append(mount_src)
+
+for path in paths_to_add:
+    sys.path.insert(0, path)
 
 import random
 from typing import Dict, Generator, List, Optional, Tuple
