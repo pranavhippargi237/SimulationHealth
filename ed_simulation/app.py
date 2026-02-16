@@ -2434,7 +2434,7 @@ def main():
                 pathway_text = " → ".join([n.name.replace("_", " ").title() for n in pathway])
                 st.markdown(f"`{pathway_text}`")
         
-        if st.button("❌ Close Diagram"):
+        if st.button("❌ Close Diagram", key="close_diagram_main"):
             st.session_state['show_ed_diagram'] = False
             st.rerun()
         
