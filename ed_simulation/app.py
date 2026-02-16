@@ -13,9 +13,20 @@ import os
 
 # Add the repository root to Python path for imports
 # This ensures ed_simulation package can be found
-repo_root = os.path.dirname(os.path.abspath(__file__))
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
+# Handle both cases: app.py at repo root or in ed_simulation subdirectory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+
+# If we're in an ed_simulation subdirectory, add parent to path
+# Otherwise, add current directory to path
+if os.path.basename(current_dir) == 'ed_simulation':
+    # We're in ed_simulation subdirectory, add parent to path
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+else:
+    # We're at repo root, add current directory to path
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
 
 import random
 from typing import Dict, Generator, List, Optional, Tuple
