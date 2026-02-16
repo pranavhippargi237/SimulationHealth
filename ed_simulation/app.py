@@ -479,6 +479,9 @@ def run_simulation(
     Returns:
         Tuple of (EDSimulation, EDMetrics, scenario_description)
     """
+    # Ensure warmup_minutes is a float
+    warmup_minutes = float(warmup_minutes) if warmup_minutes is not None else 120.0
+    
     Patient.reset_counter()
     env = simpy.Environment()
     sim = EDSimulationWithScenarios(
@@ -596,6 +599,8 @@ def run_simulation_with_historical_arrivals(
     seed: int = 42,
     warmup_minutes: float = 120.0
 ) -> Tuple:
+    # Ensure warmup_minutes is a float
+    warmup_minutes = float(warmup_minutes) if warmup_minutes is not None else 120.0
     """
     Run ED simulation with historical arrival data.
 
@@ -2748,7 +2753,7 @@ def main():
         arrival_rate = custom_config.arrival_rate or ARRIVAL_DEFAULTS["mean_arrival_rate"]
     else:
         # Use defaults
-        arrival_rate = st.sidebar.slider(
+    arrival_rate = st.sidebar.slider(
         "Arrival Rate (patients/hour)",
         min_value=1.0,
         max_value=10.0,
@@ -3222,9 +3227,9 @@ def main():
         # Run simulation(s) - single or multiple replications
         if num_replications == 1:
             # Single run (original behavior)
-            with st.spinner("Running simulation..."):
-                sim, metrics, scenario_desc = run_simulation(
-                    arrival_rate=arrival_rate,
+        with st.spinner("Running simulation..."):
+            sim, metrics, scenario_desc = run_simulation(
+                arrival_rate=arrival_rate,
                 scenario_key=scenario_key,
                 scenario_params=scenario_params,
                     seed=42,  # Same seed for fair comparison with baseline
@@ -3309,7 +3314,7 @@ def main():
                     progress_bar.empty()
 
         if num_replications == 1:
-            st.success(f"Simulation complete! {metrics.total_patients} patients processed.")
+        st.success(f"Simulation complete! {metrics.total_patients} patients processed.")
         else:
             st.success(f"Completed {num_replications} replications! Average: {aggregated_metrics.total_patients_mean:.1f} patients per run.")
 
