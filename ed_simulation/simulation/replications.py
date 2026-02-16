@@ -7,7 +7,7 @@ and aggregate statistics with confidence intervals.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple, Callable
+from typing import List, Dict, Optional, Tuple, Callable, Any
 from statistics import mean, median, stdev
 import math
 
@@ -18,6 +18,8 @@ from ..simulation.metrics import EDMetrics, MetricsCollector
 class ReplicationResult:
     """Results from a single simulation replication."""
     metrics: EDMetrics
+    sim: Any  # EDSimulationWithScenarios object
+    description: str
     seed: int
     replication_number: int
 
@@ -204,6 +206,8 @@ def run_replications(
         
         result = ReplicationResult(
             metrics=metrics,
+            sim=sim,
+            description=description,
             seed=seed,
             replication_number=i + 1
         )

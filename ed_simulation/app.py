@@ -64,6 +64,11 @@ from ed_simulation.simulation.staffing_optimizer import (
     OptimizationGoal,
     StaffingSuggestion,
 )
+from ed_simulation.simulation.replications import (
+    run_replications,
+    AggregatedMetrics,
+    ReplicationResult,
+)
 from ed_simulation.scenarios import (
     BoardingScenario,
     VerticalTrackScenario,
@@ -2761,6 +2766,16 @@ def main():
         step=15,
         help="Initial period excluded from statistics. Patients arriving during warmup are discarded. Default: 120 minutes (2 hours).",
     )
+    
+    # Number of replications
+    num_replications = st.sidebar.slider(
+        "Number of Runs",
+        min_value=1,
+        max_value=20,
+        value=1,
+        step=1,
+        help="Run multiple simulations with different random seeds for statistical confidence. 3+ runs enable confidence intervals.",
+    )
 
         # Show diagram button for default mode too
     st.sidebar.markdown("---")
@@ -3204,33 +3219,99 @@ def main():
         if config_mode == "Customize My ED" and 'custom_config' in st.session_state:
             ed_config = st.session_state['custom_config']
         
-        # Run scenario simulation
+        # Run simulation(s) - single or multiple replications
+        if num_replications == 1:
+            # Single run (original behavior)
         with st.spinner("Running simulation..."):
             sim, metrics, scenario_desc = run_simulation(
                 arrival_rate=arrival_rate,
                 scenario_key=scenario_key,
                 scenario_params=scenario_params,
-                seed=42,  # Same seed for fair comparison with baseline
-                ed_config=ed_config,
-                warmup_minutes=warmup_minutes,
-            )
-        
-        # Run baseline for comparison if scenario is selected
-        baseline_sim = None
-        baseline_metrics = None
-        if scenario_key is not None:
-            with st.spinner("Running baseline simulation for comparison..."):
-                # Use same seed to ensure identical arrival patterns for fair comparison
-                baseline_sim, baseline_metrics, _ = run_simulation(
-                    arrival_rate=arrival_rate,
-                    scenario_key=None,  # Baseline
-                    scenario_params=None,
-                    seed=42,  # Same seed as scenario for fair comparison
+                    seed=42,  # Same seed for fair comparison with baseline
                     ed_config=ed_config,
                     warmup_minutes=warmup_minutes,
-            )
+                )
+            
+            aggregated_metrics = None
+            replication_results = None
+            
+            # Run baseline for comparison if scenario is selected
+            baseline_sim = None
+            baseline_metrics = None
+            baseline_aggregated = None
+            if scenario_key is not None:
+                with st.spinner("Running baseline simulation for comparison..."):
+                    baseline_sim, baseline_metrics, _ = run_simulation(
+                        arrival_rate=arrival_rate,
+                        scenario_key=None,  # Baseline
+                        scenario_params=None,
+                        seed=42,  # Same seed as scenario for fair comparison
+                        ed_config=ed_config,
+                        warmup_minutes=warmup_minutes,
+                    )
+        else:
+            # Multiple replications
+            with st.spinner(f"Running {num_replications} simulations for statistical confidence..."):
+                progress_bar = st.progress(0)
+                
+                def run_single_sim(seed: int):
+                    return run_simulation(
+                        arrival_rate=arrival_rate,
+                        scenario_key=scenario_key,
+                        scenario_params=scenario_params,
+                        seed=seed,
+                        ed_config=ed_config,
+                        warmup_minutes=warmup_minutes,
+                    )
+                
+                replication_results, aggregated_metrics = run_replications(
+                    simulation_func=run_single_sim,
+                    num_replications=num_replications,
+                    base_seed=42,
+                )
+                
+                # Use first replication's sim for display
+                sim = replication_results[0].sim
+                scenario_desc = f"Multiple Replications ({num_replications} runs)"
+                # Create a synthetic EDMetrics from aggregated for display compatibility
+                # We'll display aggregated stats separately
+                metrics = replication_results[0].metrics  # Use first run's metrics for compatibility
+                
+                progress_bar.progress(1.0)
+                progress_bar.empty()
+            
+            # Run baseline replications if scenario is selected
+            baseline_sim = None
+            baseline_metrics = None
+            baseline_aggregated = None
+            if scenario_key is not None:
+                with st.spinner(f"Running {num_replications} baseline simulations for comparison..."):
+                    progress_bar = st.progress(0)
+                    
+                    def run_baseline_sim(seed: int):
+                        return run_simulation(
+                            arrival_rate=arrival_rate,
+                            scenario_key=None,
+                            scenario_params=None,
+                            seed=seed,
+                            ed_config=ed_config,
+                            warmup_minutes=warmup_minutes,
+                        )
+                    
+                    baseline_results, baseline_aggregated = run_replications(
+                        simulation_func=run_baseline_sim,
+                        num_replications=num_replications,
+                        base_seed=42,
+                    )
+                    
+                    baseline_metrics = baseline_aggregated
+                    progress_bar.progress(1.0)
+                    progress_bar.empty()
 
+        if num_replications == 1:
         st.success(f"Simulation complete! {metrics.total_patients} patients processed.")
+        else:
+            st.success(f"Completed {num_replications} replications! Average: {aggregated_metrics.total_patients_mean:.1f} patients per run.")
 
         # Store simulation results in session state for tabs
         st.session_state['last_simulation'] = {
@@ -3239,6 +3320,10 @@ def main():
             'scenario_desc': scenario_desc,
             'baseline_sim': baseline_sim,
             'baseline_metrics': baseline_metrics,
+            'num_replications': num_replications,
+            'aggregated_metrics': aggregated_metrics if num_replications > 1 else None,
+            'replication_results': replication_results if num_replications > 1 else None,
+            'baseline_aggregated': baseline_aggregated if (num_replications > 1 and scenario_key) else None,
         }
 
         # Create tabs for different views
