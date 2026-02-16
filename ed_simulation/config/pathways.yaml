@@ -1,0 +1,54 @@
+# Patient Flow Pathways Configuration
+# Define the sequence of nodes patients visit based on their ESI acuity level
+
+pathways:
+  # Critical pathway for ESI 1-2 (most urgent)
+  ESI_1:
+    name: "Critical"
+    nodes:
+      - TRIAGE
+      - BED_ASSIGNMENT
+      - PROVIDER_ASSESSMENT
+      - DIAGNOSTICS
+      - TREATMENT
+      - DISPOSITION
+  
+  ESI_2:
+    name: "Critical"
+    nodes:
+      - TRIAGE
+      - BED_ASSIGNMENT
+      - PROVIDER_ASSESSMENT
+      - DIAGNOSTICS
+      - TREATMENT
+      - DISPOSITION
+  
+  # Standard pathway for ESI 3
+  ESI_3:
+    name: "Standard"
+    nodes:
+      - TRIAGE
+      - REGISTRATION
+      - BED_ASSIGNMENT
+      - PROVIDER_ASSESSMENT
+      - DIAGNOSTICS
+      - TREATMENT
+      - DISPOSITION
+  
+  # Fast Track pathway for ESI 4-5 (low acuity)
+  ESI_4:
+    name: "Fast Track"
+    nodes:
+      - TRIAGE
+      - FAST_TRACK
+      - PROVIDER_ASSESSMENT
+      - DISPOSITION
+  
+  ESI_5:
+    name: "Fast Track"
+    nodes:
+      - TRIAGE
+      - FAST_TRACK
+      - PROVIDER_ASSESSMENT
+      - DISPOSITION
+

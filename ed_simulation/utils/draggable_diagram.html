@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #network-container {
+            width: 100%;
+            height: 700px;
+            border: 1px solid #ddd;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="network-container"></div>
+    <script id="diagram-data" type="application/json">
+        <!-- Data will be injected here by Python -->
+    </script>
+    <script>
+        // Get data from injected script tag
+        const dataScript = document.getElementById('diagram-data');
+        let data = {
+            nodes: [],
+            edges: [],
+            nodeStats: {},
+            savedPositions: {}
+        };
+        
+        if (dataScript.textContent && dataScript.textContent.trim()) {
+            try {
+                data = JSON.parse(dataScript.textContent);
+            } catch (e) {
+                console.error('Error parsing diagram data:', e);
+            }
+        }
+
+        // Create nodes array
+        const nodes = new vis.DataSet(data.nodes);
+        const edges = new vis.DataSet(data.edges);
+
+        // Network configuration
+        const options = {
+            nodes: {
+                shape: 'box',
+                font: {
+                    size: 12,
+                    face: 'Arial',
+                    color: 'black'
+                },
+                borderWidth: 2,
+                shadow: true,
+                widthConstraint: {
+                    minimum: 100,
+                    maximum: 150
+                },
+                heightConstraint: {
+                    minimum: 60,
+                    maximum: 80
+                }
+            },
+            edges: {
+                width: 3,
+                arrows: {
+                    to: {
+                        enabled: true,
+                        scaleFactor: 0.8
+                    }
+                },
+                smooth: {
+                    type: 'continuous',
+                    roundness: 0.5
+                }
+            },
+            physics: {
+                enabled: false
+            },
+            interaction: {
+                dragNodes: true,
+                dragView: false,
+                zoomView: false,
+                selectConnectedEdges: false
+            },
+            layout: {
+                hierarchical: false
+            }
+        };
+
+        // Create network
+        const container = document.getElementById('network-container');
+        const network = new vis.Network(container, { nodes, edges }, options);
+
+        // Track node positions
+        let nodePositions = {};
+        
+        // Initialize positions from saved data
+        if (data.savedPositions && Object.keys(data.savedPositions).length > 0) {
+            const updatedNodes = data.nodes.map(node => {
+                const savedPos = data.savedPositions[node.id];
+                if (savedPos) {
+                    return {
+                        ...node,
+                        x: savedPos.x,
+                        y: savedPos.y
+                    };
+                }
+                return node;
+            });
+            nodes.update(updatedNodes);
+        }
+        
+        // Store initial positions
+        setTimeout(() => {
+            const allPositions = network.getPositions();
+            Object.keys(allPositions).forEach(nodeId => {
+                nodePositions[nodeId] = allPositions[nodeId];
+            });
+        }, 100);
+        
+        // Save positions when nodes are dragged
+        let positionUpdateTimeout;
+        network.on("dragEnd", function(params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const position = network.getPositions([nodeId])[nodeId];
+                nodePositions[nodeId] = position;
+                
+                // Store in localStorage for persistence
+                try {
+                    localStorage.setItem('ed_node_positions', JSON.stringify(nodePositions));
+                } catch (e) {
+                    console.log('Could not save to localStorage:', e);
+                }
+                
+                // Debounce position updates
+                clearTimeout(positionUpdateTimeout);
+                positionUpdateTimeout = setTimeout(() => {
+                    // Try to communicate with parent
+                    if (window.parent && window.parent !== window) {
+                        try {
+                            window.parent.postMessage({
+                                type: 'position_update',
+                                nodeId: nodeId,
+                                position: position,
+                                allPositions: nodePositions
+                            }, '*');
+                        } catch (e) {
+                            console.log('Could not send message to parent:', e);
+                        }
+                    }
+                }, 500);
+            }
+        });
+
+        // Handle node click - store in localStorage for Streamlit to read
+        network.on("click", function(params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const nodeData = nodes.get(nodeId);
+                
+                // Store clicked node in localStorage
+                try {
+                    localStorage.setItem('ed_clicked_node', nodeId);
+                    localStorage.setItem('ed_clicked_node_time', Date.now().toString());
+                } catch (e) {
+                    console.log('Could not save to localStorage:', e);
+                }
+                
+                // Try to communicate with parent
+                if (window.parent && window.parent !== window) {
+                    try {
+                        window.parent.postMessage({
+                            type: 'node_click',
+                            nodeId: nodeId,
+                            nodeData: nodeData
+                        }, '*');
+                    } catch (e) {
+                        console.log('Could not send message to parent:', e);
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

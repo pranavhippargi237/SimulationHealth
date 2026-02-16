@@ -397,6 +397,25 @@ class Node:
     def is_available(self) -> bool:
         """Whether any capacity is available."""
         return len(self._patients_in_service) < self._config.capacity
+    
+    def update_capacity(self, new_capacity: int) -> None:
+        """
+        Update node capacity by recreating the resource.
+        
+        Note: This will affect new requests but won't interrupt
+        patients currently in service.
+        
+        Args:
+            new_capacity: New capacity value (must be >= current patients in service)
+        """
+        if new_capacity < len(self._patients_in_service):
+            # Can't reduce below current usage
+            new_capacity = len(self._patients_in_service)
+        
+        self._config.capacity = new_capacity
+        # Recreate resource with new capacity (use same class as original)
+        resource_class = type(self._resource)
+        self._resource = resource_class(self._env, capacity=new_capacity)
 
     # =========================================================================
     # Core Process Methods

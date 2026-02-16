@@ -116,27 +116,56 @@ class StaffingAdjustmentScenario:
         self,
         config: Optional[StaffingAdjustmentConfig] = None,
         peak_provider_increase: int = 1,
+        time_window_start: Optional[int] = None,
+        time_window_end: Optional[int] = None,
+        target_node: Optional[NodeType] = None,
+        additional_staff: int = 0,
     ):
         """
         Initialize staffing adjustment scenario.
 
         Args:
             config: Full configuration
-            peak_provider_increase: Additional providers during peak (14:00-22:00)
+            peak_provider_increase: Additional providers during peak (14:00-22:00) - legacy
+            time_window_start: Start hour for time window (0-23)
+            time_window_end: End hour for time window (0-23)
+            target_node: Node type to adjust during time window
+            additional_staff: Additional staff count to add during window
         """
-        if config:
-            self._config = config
-        else:
-            # Create default config with peak increase
-            self._config = StaffingAdjustmentConfig()
-            # Modify peak window based on parameter
-            for window in self._config.windows:
-                if window.start_hour == 14:
-                    base = NODE_CAPACITY_DEFAULTS.get("PROVIDER_ASSESSMENT", 4)
-                    window.capacities[NodeType.PROVIDER_ASSESSMENT] = base + peak_provider_increase
-
         self._current_hour: int = 0
         self._nodes: Optional[Dict[NodeType, Node]] = None
+        self._hourly_capacities: Dict[int, Dict[NodeType, int]] = {}
+        
+        # New time-window mode
+        if time_window_start is not None and time_window_end is not None and target_node is not None:
+            self._time_window_start = time_window_start
+            self._time_window_end = time_window_end
+            self._target_node = target_node
+            self._additional_staff = additional_staff
+            self._use_time_window = True
+            
+            # Create a simple config with one window
+            self._config = StaffingAdjustmentConfig()
+            self._config.windows = [
+                StaffingWindow(
+                    start_hour=time_window_start,
+                    end_hour=time_window_end,
+                    capacities={}
+                )
+            ]
+        else:
+            # Legacy mode
+            self._use_time_window = False
+            if config:
+                self._config = config
+            else:
+                # Create default config with peak increase
+                self._config = StaffingAdjustmentConfig()
+                # Modify peak window based on parameter
+                for window in self._config.windows:
+                    if window.start_hour == 14:
+                        base = NODE_CAPACITY_DEFAULTS.get("PROVIDER_ASSESSMENT", 4)
+                        window.capacities[NodeType.PROVIDER_ASSESSMENT] = base + peak_provider_increase
 
     def add_window(self, window: StaffingWindow) -> None:
         """Add a staffing window."""
@@ -182,21 +211,42 @@ class StaffingAdjustmentScenario:
         capacities = {
             NodeType.TRIAGE: NODE_CAPACITY_DEFAULTS.get("TRIAGE", 2),
             NodeType.REGISTRATION: NODE_CAPACITY_DEFAULTS.get("REGISTRATION", 2),
+            NodeType.BED_ASSIGNMENT: NODE_CAPACITY_DEFAULTS.get("BED_ASSIGNMENT", 20),
+            NodeType.FAST_TRACK: NODE_CAPACITY_DEFAULTS.get("FAST_TRACK", 4),
             NodeType.PROVIDER_ASSESSMENT: NODE_CAPACITY_DEFAULTS.get("PROVIDER_ASSESSMENT", 4),
+            NodeType.DIAGNOSTICS: NODE_CAPACITY_DEFAULTS.get("DIAGNOSTICS", 5),
+            NodeType.TREATMENT: NODE_CAPACITY_DEFAULTS.get("TREATMENT", 20),
+            NodeType.DISPOSITION: NODE_CAPACITY_DEFAULTS.get("DISPOSITION", 4),
         }
 
-        # Apply windows (later windows override)
-        for window in self._config.windows:
-            if window.contains_hour(hour):
-                capacities.update(window.capacities)
+        # Apply time-window mode
+        if self._use_time_window:
+            # Check if hour is in time window
+            in_window = False
+            if self._time_window_start <= self._time_window_end:
+                in_window = self._time_window_start <= hour < self._time_window_end
+            else:
+                # Wraps around midnight
+                in_window = hour >= self._time_window_start or hour < self._time_window_end
+            
+            if in_window and self._target_node in capacities:
+                base_capacity = capacities[self._target_node]
+                capacities[self._target_node] = base_capacity + self._additional_staff
+        else:
+            # Legacy mode: Apply windows (later windows override)
+            for window in self._config.windows:
+                if window.contains_hour(hour):
+                    capacities.update(window.capacities)
 
-        # Update nodes
+        # Store hourly capacity for tracking
+        self._hourly_capacities[hour] = capacities.copy()
+
+        # Update nodes - recreate resources for dynamic capacity changes
         for node_type, capacity in capacities.items():
             if node_type in self._nodes:
                 node = self._nodes[node_type]
-                # Note: SimPy resources can't be resized dynamically,
-                # so this sets the target capacity for new resources
-                node._config.capacity = capacity
+                # Use the new update_capacity method that recreates the resource
+                node.update_capacity(capacity)
 
     def get_capacity_for_hour(self, hour: int) -> Dict[NodeType, int]:
         """

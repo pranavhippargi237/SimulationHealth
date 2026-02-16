@@ -24,6 +24,7 @@ from ed_simulation.core.enums import NodeType, Acuity
 from ed_simulation.core.node import Node, NodeConfig
 from ed_simulation.core.patient import Patient
 from ed_simulation.processes.arrivals import ArrivalGenerator, ArrivalConfig
+from ed_simulation.processes.routing import RoutingEngine
 from ed_simulation.config.defaults import SIMULATION_DEFAULTS
 
 
@@ -55,6 +56,9 @@ class EDSimulation:
         self.nodes: Dict[NodeType, Node] = {}
         self._create_nodes()
         
+        # Create routing engine
+        self.routing_engine = RoutingEngine()
+        
         # Patient tracking
         self.patients: List[Patient] = []
         
@@ -67,6 +71,7 @@ class EDSimulation:
             NodeType.TRIAGE,
             NodeType.REGISTRATION,
             NodeType.BED_ASSIGNMENT,
+            NodeType.FAST_TRACK,
             NodeType.PROVIDER_ASSESSMENT,
             NodeType.DIAGNOSTICS,
             NodeType.TREATMENT,
@@ -83,28 +88,32 @@ class EDSimulation:
     
     def patient_journey(self, patient: Patient):
         """
-        Simulate a patient's journey through the ED.
+        Simulate a patient's journey through the ED using conditional routing.
+        
+        Routing is based on ESI acuity:
+        - ESI 1-2: Critical pathway (skip Registration)
+        - ESI 3: Standard pathway (full flow)
+        - ESI 4-5: Fast Track pathway (skip Diagnostics/Treatment if minor)
         
         Args:
             patient: The patient to process
         """
-        # Simple linear flow through all nodes
-        flow = [
-            NodeType.TRIAGE,
-            NodeType.REGISTRATION,
-            NodeType.BED_ASSIGNMENT,
-            NodeType.PROVIDER_ASSESSMENT,
-            NodeType.DIAGNOSTICS,
-            NodeType.TREATMENT,
-            NodeType.DISPOSITION,
-        ]
+        # Start with triage (all patients go through triage)
+        current_node = NodeType.TRIAGE
         
-        for node_type in flow:
-            node = self.nodes[node_type]
+        while current_node is not None:
+            # Process patient at current node
+            node = self.nodes[current_node]
             completed = yield from node.process_patient(patient)
             
             if not completed:  # Patient LWBS
                 return
+            
+            # Determine next node based on routing engine
+            current_node = self.routing_engine.next_node(
+                current_node=current_node,
+                acuity=patient.acuity
+            )
         
         # Patient completed journey - discharge
         patient.discharge()

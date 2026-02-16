@@ -34,6 +34,7 @@ class NodeType(Enum):
     TRIAGE = auto()               # Initial assessment and ESI assignment
     REGISTRATION = auto()         # Administrative intake
     BED_ASSIGNMENT = auto()       # Waiting for available bed
+    FAST_TRACK = auto()           # Fast track area for low-acuity patients
     PROVIDER_ASSESSMENT = auto()  # Physician/NP evaluation
     DIAGNOSTICS = auto()          # Labs, imaging, etc.
     TREATMENT = auto()            # Procedures, medications

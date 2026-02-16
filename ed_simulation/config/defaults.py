@@ -77,6 +77,13 @@ SERVICE_TIME_DEFAULTS: Dict[str, Dict[int, Dict[str, float]]] = {
         4: {"mean": 30.0, "std_dev": 20.0},
         5: {"mean": 45.0, "std_dev": 25.0},
     },
+    "FAST_TRACK": {
+        1: {"mean": 0.0, "std_dev": 0.0},   # Not used for ESI 1-2
+        2: {"mean": 0.0, "std_dev": 0.0},   # Not used for ESI 1-2
+        3: {"mean": 0.0, "std_dev": 0.0},   # Not used for ESI 3
+        4: {"mean": 2.0, "std_dev": 1.0},   # Quick check-in for fast track
+        5: {"mean": 2.0, "std_dev": 1.0},   # Quick check-in for fast track
+    },
     "PROVIDER_ASSESSMENT": {
         1: {"mean": 30.0, "std_dev": 15.0},  # Extended assessment
         2: {"mean": 25.0, "std_dev": 12.0},
@@ -116,6 +123,7 @@ NODE_CAPACITY_DEFAULTS: Dict[str, int] = {
     "TRIAGE": 2,              # 2 triage nurses
     "REGISTRATION": 2,        # 2 registration clerks
     "BED_ASSIGNMENT": 20,     # 20 ED beds total
+    "FAST_TRACK": 4,          # 4 fast track beds/chairs
     "PROVIDER_ASSESSMENT": 4, # 4 providers (physicians/NPs)
     "DIAGNOSTICS": 5,         # Combined lab/imaging capacity
     "TREATMENT": 20,          # Same as beds (treatment occurs in bed)
