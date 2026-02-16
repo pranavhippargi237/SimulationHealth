@@ -2749,13 +2749,13 @@ def main():
     else:
         # Use defaults
         arrival_rate = st.sidebar.slider(
-            "Arrival Rate (patients/hour)",
-            min_value=1.0,
-            max_value=10.0,
-            value=3.0,
-            step=0.5,
-            help="Average number of patients arriving per hour (Poisson process)",
-        )
+        "Arrival Rate (patients/hour)",
+        min_value=1.0,
+        max_value=10.0,
+        value=3.0,
+        step=0.5,
+        help="Average number of patients arriving per hour (Poisson process)",
+    )
 
     # Warmup period input
     warmup_minutes = st.sidebar.slider(
@@ -3222,11 +3222,11 @@ def main():
         # Run simulation(s) - single or multiple replications
         if num_replications == 1:
             # Single run (original behavior)
-            with st.spinner("Running simulation..."):
-                sim, metrics, scenario_desc = run_simulation(
-                    arrival_rate=arrival_rate,
-                    scenario_key=scenario_key,
-                    scenario_params=scenario_params,
+        with st.spinner("Running simulation..."):
+            sim, metrics, scenario_desc = run_simulation(
+                arrival_rate=arrival_rate,
+                scenario_key=scenario_key,
+                scenario_params=scenario_params,
                     seed=42,  # Same seed for fair comparison with baseline
                     ed_config=ed_config,
                     warmup_minutes=warmup_minutes,
@@ -3309,7 +3309,7 @@ def main():
                     progress_bar.empty()
 
         if num_replications == 1:
-        st.success(f"Simulation complete! {metrics.total_patients} patients processed.")
+            st.success(f"Simulation complete! {metrics.total_patients} patients processed.")
         else:
             st.success(f"Completed {num_replications} replications! Average: {aggregated_metrics.total_patients_mean:.1f} patients per run.")
 
@@ -3378,37 +3378,37 @@ def main():
         st.subheader("National ED Metrics Report")
         st.markdown(f"```\n{metrics.print_report()}\n```")
 
-            # Charts
-            st.subheader("📊 Visualizations")
+        # Charts
+        st.subheader("📊 Visualizations")
+        
+        # LOS Distribution
+        los_fig = plot_los_distribution(sim.patients)
+        st.plotly_chart(los_fig, use_container_width=True)
+        
+        # Key Metrics Bar Chart (with baseline if available)
+        if baseline_metrics is not None:
+            metrics_fig = plot_key_metrics_comparison(metrics, baseline_metrics=baseline_metrics)
+        else:
+            metrics_fig = plot_key_metrics_comparison(metrics)
+        st.plotly_chart(metrics_fig, use_container_width=True)
+        
+        # Hour-by-Hour Queue Length by Node
+        st.markdown("#### Hour-by-Hour Queue Length by Node")
+        hourly_queue_fig = plot_hourly_queue_lengths_by_node(sim.nodes)
+        st.plotly_chart(hourly_queue_fig, use_container_width=True)
+        
+        # Wait Time Comparison (Baseline vs Scenario)
+        if baseline_sim is not None:
+            st.markdown("#### Wait Time Comparison: Baseline vs Scenario")
+            wait_time_fig = plot_wait_times_by_node_comparison(baseline_sim.nodes, sim.nodes)
+            st.plotly_chart(wait_time_fig, use_container_width=True)
             
-            # LOS Distribution
-            los_fig = plot_los_distribution(sim.patients)
-            st.plotly_chart(los_fig, use_container_width=True)
-            
-            # Key Metrics Bar Chart (with baseline if available)
-            if baseline_metrics is not None:
-                metrics_fig = plot_key_metrics_comparison(metrics, baseline_metrics=baseline_metrics)
-            else:
-                metrics_fig = plot_key_metrics_comparison(metrics)
-            st.plotly_chart(metrics_fig, use_container_width=True)
-            
-            # Hour-by-Hour Queue Length by Node
-            st.markdown("#### Hour-by-Hour Queue Length by Node")
-            hourly_queue_fig = plot_hourly_queue_lengths_by_node(sim.nodes)
-            st.plotly_chart(hourly_queue_fig, use_container_width=True)
-            
-            # Wait Time Comparison (Baseline vs Scenario)
-            if baseline_sim is not None:
-                st.markdown("#### Wait Time Comparison: Baseline vs Scenario")
-                wait_time_fig = plot_wait_times_by_node_comparison(baseline_sim.nodes, sim.nodes)
-                st.plotly_chart(wait_time_fig, use_container_width=True)
-            
-            # Queue Length Over Time (original chart)
-            queue_fig = plot_queue_length_over_time(sim.nodes)
-            st.plotly_chart(queue_fig, use_container_width=True)
-            
-            # Hour-by-hour metrics for time-window staffing
-            if scenario_key == "staffing_adjustment" and sim._scenario:
+        # Queue Length Over Time (original chart)
+        queue_fig = plot_queue_length_over_time(sim.nodes)
+        st.plotly_chart(queue_fig, use_container_width=True)
+        
+        # Hour-by-hour metrics for time-window staffing
+        if scenario_key == "staffing_adjustment" and sim._scenario:
                 _display_hourly_metrics(sim, scenario_params)
 
         # Patient journeys table
