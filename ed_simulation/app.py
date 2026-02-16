@@ -521,6 +521,9 @@ def run_simulation_with_custom_capacities(
     Returns:
         Tuple of (EDSimulation, EDMetrics, description)
     """
+    # Ensure warmup_minutes is a float
+    warmup_minutes = float(warmup_minutes) if warmup_minutes is not None else 120.0
+    
     Patient.reset_counter()
     env = simpy.Environment()
     sim = EDSimulationWithScenarios(
