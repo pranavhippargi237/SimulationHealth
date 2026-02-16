@@ -2747,7 +2747,7 @@ def main():
             # Show ED diagram button
             st.markdown("---")
             st.markdown("### 📊 Visual Diagram")
-            if st.button("🖼️ Show ED Layout Diagram", use_container_width=True, type="primary"):
+            if st.button("🖼️ Show ED Layout Diagram", use_container_width=True, type="primary", key="show_diagram_customize"):
                 st.session_state['show_ed_diagram'] = True
                 st.rerun()
         
@@ -2788,7 +2788,7 @@ def main():
     # Show diagram button for default mode too
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 📊 Visual Diagram")
-    if st.sidebar.button("🖼️ Show ED Layout Diagram", use_container_width=True, type="primary"):
+    if st.sidebar.button("🖼️ Show ED Layout Diagram", use_container_width=True, type="primary", key="show_diagram_sidebar"):
         st.session_state['show_ed_diagram'] = True
         st.rerun()
 
@@ -2796,7 +2796,7 @@ def main():
     
     # Show close button if diagram is open
     if st.session_state.get('show_ed_diagram', False):
-        if st.sidebar.button("❌ Close Diagram", use_container_width=True):
+        if st.sidebar.button("❌ Close Diagram", use_container_width=True, key="close_diagram_sidebar"):
             st.session_state['show_ed_diagram'] = False
             st.rerun()
 
